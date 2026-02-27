@@ -3,7 +3,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 // ⚠️ ضع بيانات مشروعك هنا
 const SUPABASE_URL = "https://rfuifdpjlyhqvcywdzrg.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhb
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdWlmZHBqbHlocXZjeXdkenJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNDU2MDIsImV4cCI6MjA4NzYyMTYwMn0.bNyi-l5kx6y6TsXayP0oJ9iwchPneEaCiZ9R8l0oMBE"
 // إنشاء العميل
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
