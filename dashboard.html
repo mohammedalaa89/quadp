@@ -9,53 +9,40 @@
     :root{
       --bg:#0b1220;
       --card:#0f1b33;
+      --card2:#0d1830;
       --text:#e9eefc;
       --muted:#a9b6d6;
       --brand:#4e7dff;
       --danger:#ff5a6b;
       --border:rgba(255,255,255,.10);
     }
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
     body{
-      margin:0;
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
       background: radial-gradient(1200px 600px at 70% 0%, #142550 0%, var(--bg) 55%);
       color:var(--text);
-      min-height:100vh;
     }
     .topbar{
-      display:flex; gap:10px; padding:18px 20px;
-      align-items:center; justify-content:flex-end;
-      position:sticky; top:0;
-      background: linear-gradient(180deg, rgba(11,18,32,.95), rgba(11,18,32,.55));
-      backdrop-filter: blur(10px);
-      border-bottom:1px solid rgba(255,255,255,.06);
-      z-index:10;
+      display:flex; gap:10px; padding:18px 20px; align-items:center; justify-content:flex-end;
     }
     .btn{
       border:0; padding:10px 14px; border-radius:10px; cursor:pointer;
-      background: var(--brand); color:white; font-weight:800;
+      background: var(--brand); color:white; font-weight:700;
     }
     .btn.secondary{ background: rgba(255,255,255,.10); color: var(--text); }
     .btn.danger{ background: var(--danger); }
-    .btn:disabled{opacity:.55; cursor:not-allowed;}
-
     .wrap{ padding: 10px 20px 30px; }
     .title{ font-size:34px; font-weight:900; margin:10px 0 16px; text-align:right; }
-
     .grid{
       display:grid; grid-template-columns: 1.15fr .85fr;
       gap:18px; align-items:start;
     }
-
     .panel{
       background: rgba(12,20,40,.55);
       border:1px solid var(--border);
       border-radius:18px; padding:16px;
       backdrop-filter: blur(10px);
-      box-shadow: 0 12px 40px rgba(0,0,0,.25);
     }
     .panel h2{ margin:0 0 12px; font-size:20px; }
-
     .clients{
       display:flex; flex-direction:column; gap:10px;
       min-height:120px;
@@ -66,11 +53,9 @@
       background: rgba(255,255,255,.06);
       border:1px solid rgba(255,255,255,.08);
       cursor:pointer;
-      transition: transform .08s ease, background .08s ease;
     }
-    .client-item:hover{ background: rgba(255,255,255,.09); transform: translateY(-1px); }
+    .client-item:hover{ background: rgba(255,255,255,.09); }
     .client-item.active{ outline:2px solid rgba(78,125,255,.65); }
-
     .client-name{ font-weight:900; }
     .client-meta{ color:var(--muted); font-size:13px; margin-top:4px; }
     .empty{ color:var(--muted); padding:10px; }
@@ -88,22 +73,24 @@
       background:#0a1020;
       min-height: 420px;
     }
-
     iframe{
       width:100%;
-      height: 560px;
+      height: 520px;
       border:0;
       background: white;
     }
 
     @media (max-width: 980px){
       .grid{ grid-template-columns: 1fr; }
-      iframe{ height: 650px; }
+      iframe{ height: 580px; }
     }
   </style>
 
-  <!-- PDF generator -->
+  <!-- html2pdf -->
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
+  <!-- مهم: supabase.js لازم يعرّف window.supabaseClient -->
+  <script type="module" src="./supabase.js"></script>
 </head>
 
 <body>
@@ -116,7 +103,6 @@
     <div class="title">Clients Dashboard</div>
 
     <div class="grid">
-      <!-- clients list -->
       <div class="panel">
         <h2>العملاء</h2>
         <div class="clients" id="clientsList">
@@ -125,7 +111,6 @@
         <div class="hint" id="statusHint"></div>
       </div>
 
-      <!-- report -->
       <div class="panel">
         <h2>Client Report</h2>
         <div class="hint" id="reportHint">اختر عميل لعرض التقرير</div>
@@ -142,250 +127,186 @@
     </div>
   </div>
 
-  <!-- 1) Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- 2) Your supabase.js that sets window.supabaseClient -->
-  <script src="./supabase.js"></script>
+<script>
+  // ===== Helpers =====
+  const $ = (id) => document.getElementById(id);
 
-  <script>
-    // ===== Helpers =====
-    const $ = (id) => document.getElementById(id);
+  function escapeHtml(str){
+    return String(str ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
 
-    function escapeHtml(str){
-      return String(str ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
-    }
+  function formatLocationRow(row){
+    const city = row.city || row.location_city || row.location || "";
+    const country = row.country || "";
+    const industry = row.industry || row.client_industry || "";
+    const parts = [city, country, industry].filter(Boolean);
+    return parts.join(" • ");
+  }
 
-    function formatLocationRow(row){
-      const city = row.city || row.location_city || row.location || "";
-      const country = row.country || "";
-      const industry = row.industry || row.client_industry || "";
-      const parts = [city, country, industry].filter(Boolean);
-      return parts.join(" • ");
-    }
-
-    // ✅ تقرير أبيض واضح للطباعة والمعاينة
-    function wrapReportForPrint(rawHtml){
-      const printCss = `
-        <style>
-          html,body{ background:#fff !important; color:#111 !important; }
-          body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial; line-height:1.85; margin:0; }
-          .page{ padding: 26px 28px; }
-
-          /* عنوان جميل */
-          .header{
-            display:flex; justify-content:space-between; align-items:flex-start;
-            gap:14px; margin-bottom:14px;
-          }
-          .brand{
-            font-weight:900; font-size:16px; color:#111;
-          }
-          .date{
-            color:#666; font-size:12px; margin-top:4px;
-          }
-          h1{ font-size:22px; margin:0 0 6px; }
-          h2{ font-size:16px; margin:18px 0 10px; }
-          h3{ font-size:14px; margin:14px 0 8px; }
-
-          p,li{ font-size:12.5px; }
-          .muted{ color:#555; }
-
-          .box{
-            border:1px solid #e7e7e7; border-radius:12px;
-            padding:12px 14px; margin: 10px 0;
-            background:#fafafa;
-          }
-
-          .hr{ height:1px; background:#eee; margin:16px 0; }
-
-          .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-          .kv{ border:1px solid #eee; border-radius:10px; padding:10px 12px; background:#fff; }
-          .kv b{ display:block; margin-bottom:6px; font-size:12px; color:#333; }
-          .kv span{ font-size:12.5px; color:#111; }
-
-          @page { size:A4; margin: 12mm; }
-          img,svg{ max-width:100%; }
-          a{ color:#1d4ed8; text-decoration:none; }
-
-          /* Page breaks friendly */
-          .box, h2, h3 { break-inside: avoid; page-break-inside: avoid; }
-        </style>
-      `;
-
-      // لو rawHtml كامل فيه head
-      if (/<head[\s>]/i.test(rawHtml)) {
-        return rawHtml.replace(/<\/head>/i, `${printCss}</head>`);
-      }
-
-      // لو Fragment
-      return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">${printCss}</head>
-        <body><div class="page">${rawHtml}</div></body></html>`;
-    }
-
-    // ===== Supabase =====
-    const supabase = window.supabaseClient;
-    if (!supabase) {
-      alert("supabaseClient غير موجود. تأكد أنك بتستورد supabase CDN ثم supabase.js (بدون type=module).");
-      throw new Error("supabaseClient missing");
-    }
-
-    let selectedClient = null;
-    let cachedClients = [];
-
-    async function requireSessionOrRedirect(){
-      const { data, error } = await supabase.auth.getSession();
-      if (error) console.warn(error);
-      const session = data?.session;
-      if (!session) {
-        window.location.href = "./login.html";
-        return null;
-      }
-      return session;
-    }
-
-    async function loadClients(autoSelectFirst = true){
-      $("statusHint").textContent = "جاري جلب العملاء...";
-      $("clientsList").innerHTML = `<div class="empty">جاري التحميل...</div>`;
-
-      const { data, error } = await supabase
-        .from("clients")
-        .select("id, name, client_name, city, country, industry, created_at, report_html, report_pdf_path")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error(error);
-        $("clientsList").innerHTML = `<div class="empty">خطأ في جلب العملاء: ${escapeHtml(error.message)}</div>`;
-        $("statusHint").textContent = "";
-        return;
-      }
-
-      cachedClients = data || [];
-
-      if (cachedClients.length === 0) {
-        $("clientsList").innerHTML = `<div class="empty">لا يوجد عملاء بعد.</div>`;
-        $("statusHint").textContent = "";
-        return;
-      }
-
-      $("clientsList").innerHTML = "";
-      cachedClients.forEach(row => {
-        const name = row.name || row.client_name || "بدون اسم";
-        const meta = formatLocationRow(row);
-        const el = document.createElement("div");
-        el.className = "client-item";
-        el.dataset.id = row.id;
-
-        el.innerHTML = `
-          <div>
-            <div class="client-name">${escapeHtml(name)}</div>
-            <div class="client-meta">${escapeHtml(meta)}</div>
-          </div>
-          <div style="color:var(--muted); font-size:12px; font-weight:800;">
-            ${row.report_html ? "✅ Report" : "—"}
-          </div>
-        `;
-
-        el.addEventListener("click", () => selectClient(row.id));
-        $("clientsList").appendChild(el);
-      });
-
-      $("statusHint").textContent = `عدد العملاء: ${cachedClients.length}`;
-
-      // ✅ لو فيه عميل كان متحدد قبل كده، رجّعه بعد الريفرش
-      if (selectedClient?.id) {
-        const stillThere = cachedClients.find(x => x.id === selectedClient.id);
-        if (stillThere) {
-          selectClient(stillThere.id, { silentScroll:true });
-          return;
+  function wrapReportForPrint(rawHtml){
+    const printCss = `
+      <style>
+        html,body{ background:#fff !important; color:#111 !important; }
+        body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial; line-height:1.85; margin:0; }
+        .page{ padding: 26px 28px; }
+        h1{ font-size: 22px; margin: 0 0 14px; }
+        h2{ font-size: 16px; margin: 18px 0 10px; }
+        h3{ font-size: 14px; margin: 14px 0 8px; }
+        p,li{ font-size: 12.5px; }
+        .muted{ color:#555; }
+        .box{
+          border:1px solid #e6e6e6; border-radius:12px;
+          padding:12px 14px; margin: 10px 0; background:#fafafa;
         }
-      }
+        .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+        .kv{ border:1px solid #eee; border-radius:10px; padding:10px 12px; background:#fff; }
+        .kv b{ display:block; margin-bottom:6px; font-size:12px; color:#333; }
+        .kv span{ font-size:12.5px; color:#111; }
+        @page { size: A4; margin: 12mm; }
+        img,svg{ max-width:100%; }
+        a{ color:#1d4ed8; text-decoration:none; }
+      </style>
+    `;
+    if (/<head[\s>]/i.test(rawHtml)) {
+      return rawHtml.replace(/<\/head>/i, `${printCss}</head>`);
+    }
+    return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">${printCss}</head>
+      <body><div class="page">${rawHtml}</div></body></html>`;
+  }
 
-      // ✅ أو اختار أول عميل تلقائيًا
-      if (autoSelectFirst) {
-        selectClient(cachedClients[0].id);
-      } else {
-        // لو ما فيش selected
-        $("reportHint").textContent = "اختر عميل لعرض التقرير";
-      }
+  // ===== Wait for supabaseClient =====
+  async function waitForSupabaseClient(timeoutMs = 8000){
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs){
+      if (window.supabaseClient && window.supabaseClient.auth) return window.supabaseClient;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    throw new Error("Supabase لم يكتمل تحميله. تأكد من تحميل supabase.js بدون أخطاء.");
+  }
+
+  // ===== State =====
+  let supabase = null;
+  let selectedClient = null;
+
+  async function requireSessionOrRedirect(){
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) console.warn(error);
+    if (!session) {
+      window.location.href = "./login.html";
+      return null;
+    }
+    return session;
+  }
+
+  function markActiveClient(id){
+    document.querySelectorAll(".client-item").forEach(el => {
+      el.classList.toggle("active", el.dataset.id === id);
+    });
+  }
+
+  async function selectClient(id, cachedList){
+    let client = (cachedList || []).find(x => x.id === id);
+
+    if (!client) {
+      const { data, error } = await supabase.from("clients").select("*").eq("id", id).single();
+      if (error) return alert("خطأ في جلب العميل: " + error.message);
+      client = data;
     }
 
-    function markActiveClient(id){
-      document.querySelectorAll(".client-item").forEach(el => {
-        el.classList.toggle("active", el.dataset.id === id);
-      });
+    selectedClient = client;
+    markActiveClient(id);
+
+    const name = client.name || client.client_name || "عميل";
+    $("reportHint").textContent = `التقرير: ${name}`;
+    $("reportBox").style.display = "block";
+
+    if (client.report_html) {
+      $("reportFrame").srcdoc = wrapReportForPrint(client.report_html);
+      $("openReportBtn").disabled = false;
+      $("downloadPdfBtn").disabled = false;
+    } else {
+      $("reportFrame").srcdoc = wrapReportForPrint(`<h1>لا يوجد تقرير محفوظ</h1><p class="muted">report_html فارغ لهذا العميل.</p>`);
+      $("openReportBtn").disabled = true;
+      $("downloadPdfBtn").disabled = true;
+    }
+  }
+
+  async function loadClients(autoSelectFirst = true){
+    $("statusHint").textContent = "جاري جلب العملاء...";
+    $("clientsList").innerHTML = `<div class="empty">جاري التحميل...</div>`;
+
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id, name, client_name, city, country, industry, created_at, report_html, report_pdf_path")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      $("clientsList").innerHTML = `<div class="empty">خطأ في جلب العملاء: ${escapeHtml(error.message)}</div>`;
+      $("statusHint").textContent = "";
+      return;
     }
 
-    function buildNiceReportHtml(client){
-      const name = client.name || client.client_name || "عميل";
-      const meta = formatLocationRow(client);
+    if (!data || data.length === 0) {
+      $("clientsList").innerHTML = `<div class="empty">لا يوجد عملاء بعد.</div>`;
+      $("statusHint").textContent = "";
+      return;
+    }
 
-      // ✅ لو report_html موجود نستخدمه (بعد تحسين الطباعة)
-      if (client.report_html && String(client.report_html).trim().length > 10) {
-        return client.report_html;
-      }
+    $("clientsList").innerHTML = "";
+    data.forEach(row => {
+      const name = row.name || row.client_name || "بدون اسم";
+      const meta = formatLocationRow(row);
 
-      // ✅ لو فاضي نولد تقرير بسيط واضح بدل ما يبان “فاضي”
-      const now = new Date().toLocaleString("ar-SA");
-      return `
-        <div class="header">
-          <div>
-            <div class="brand">Client Intelligence Report</div>
-            <div class="date">${escapeHtml(now)}</div>
-          </div>
-          <div style="text-align:right">
-            <h1>${escapeHtml(name)}</h1>
-            <div class="muted">${escapeHtml(meta)}</div>
-          </div>
+      const el = document.createElement("div");
+      el.className = "client-item";
+      el.dataset.id = row.id;
+
+      el.innerHTML = `
+        <div>
+          <div class="client-name">${escapeHtml(name)}</div>
+          <div class="client-meta">${escapeHtml(meta)}</div>
         </div>
-        <div class="hr"></div>
-        <div class="box">
-          <h2>لا يوجد تقرير محفوظ</h2>
-          <p class="muted">report_html فارغ لهذا العميل. تأكد أن n8n يقوم بحفظ التقرير في عمود report_html.</p>
+        <div style="color:var(--muted); font-size:12px;">
+          ${row.report_html ? "✅ Report" : "—"}
         </div>
       `;
+
+      el.addEventListener("click", () => selectClient(row.id, data));
+      $("clientsList").appendChild(el);
+    });
+
+    $("statusHint").textContent = `عدد العملاء: ${data.length}`;
+
+    if (autoSelectFirst && data[0]) {
+      selectClient(data[0].id, data);
     }
+  }
 
-    async function selectClient(id, opts = {}){
-      const client = cachedClients.find(x => x.id === id);
-      if (!client) return;
-
-      selectedClient = client;
-      markActiveClient(id);
-
-      const name = client.name || client.client_name || "عميل";
-      $("reportHint").textContent = `التقرير: ${name}`;
-      $("reportBox").style.display = "block";
-
-      // ✅ عرض التقرير داخل iframe بشكل واضح
-      const raw = buildNiceReportHtml(client);
-      const printable = wrapReportForPrint(raw);
-      $("reportFrame").srcdoc = printable;
-
-      const hasHtml = client.report_html && String(client.report_html).trim().length > 10;
-      $("openReportBtn").disabled = !hasHtml;
-      $("downloadPdfBtn").disabled = !hasHtml;
-
-      if (!opts.silentScroll) {
-        // على الموبايل: اسكرول بسيط لتجربة أحسن
-        try { $("reportBox").scrollIntoView({ behavior:"smooth", block:"start" }); } catch(e){}
-      }
-    }
-
-    async function logout(){
+  async function logout(){
+    try{
       await supabase.auth.signOut();
       window.location.href = "./login.html";
+    }catch(e){
+      alert("Logout فشل: " + (e?.message || e));
     }
+  }
 
-    // ===== Events =====
+  function bindUI(){
     $("logoutBtn").addEventListener("click", logout);
 
     $("refreshBtn").addEventListener("click", async () => {
-      await requireSessionOrRedirect();
-      await loadClients(false);
+      try{
+        await requireSessionOrRedirect();
+        await loadClients(false);
+      }catch(e){
+        alert("Refresh فشل: " + (e?.message || e));
+      }
     });
 
     $("openReportBtn").addEventListener("click", () => {
@@ -399,35 +320,31 @@
     $("downloadPdfBtn").addEventListener("click", async () => {
       if (!selectedClient?.report_html) return;
 
-      const html = wrapReportForPrint(selectedClient.report_html);
-
-      // ننشئ DOM مؤقت نظيف (لـ html2pdf)
-      const holder = document.createElement("div");
-      holder.innerHTML = html;
-
-      const node = holder.querySelector("body") || holder;
-
-      const filenameBase = (selectedClient.name || selectedClient.client_name || "client")
-        .toString().trim().replace(/\s+/g,"-");
+      const temp = document.createElement("div");
+      temp.innerHTML = wrapReportForPrint(selectedClient.report_html);
 
       const opt = {
-        margin:       [10, 10, 10, 10],
-        filename:     `client-report-${filenameBase}.pdf`,
-        image:        { type: "jpeg", quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-        jsPDF:        { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak:    { mode: ["css", "legacy"] }
+        margin: [10, 10, 10, 10],
+        filename: `client-report-${(selectedClient.name || selectedClient.client_name || "client").replace(/\s+/g,"-")}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] }
       };
 
-      await html2pdf().set(opt).from(node).save();
+      const wrapper = temp.querySelector("body") || temp;
+      await html2pdf().set(opt).from(wrapper).save();
     });
+  }
 
-    // ===== Auto init =====
-    (async function init(){
+  // ===== Init =====
+  (async function init(){
+    try{
+      supabase = await waitForSupabaseClient();
+      bindUI();
       await requireSessionOrRedirect();
       await loadClients(true);
 
-      // ✅ لما ترجع للتاب/تفتح الصفحة تاني يحدث تلقائيًا
       document.addEventListener("visibilitychange", async () => {
         if (document.visibilityState === "visible") {
           await requireSessionOrRedirect();
@@ -435,8 +352,7 @@
         }
       });
 
-      // ✅ Realtime (لو شغال عندك) يحدث القائمة بدون Refresh
-      // لو ما تبيه احذف الجزء ده
+      // Realtime (اختياري)
       try {
         supabase.channel("clients-realtime")
           .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, async () => {
@@ -446,7 +362,12 @@
       } catch (e) {
         console.warn("Realtime not enabled:", e);
       }
-    })();
-  </script>
+    }catch(e){
+      console.error(e);
+      alert("خطأ في تهيئة الداشبورد: " + (e?.message || e));
+    }
+  })();
+</script>
+
 </body>
 </html>
