@@ -48,55 +48,79 @@
 
   <!-- 2) ملفك اللي بيعمل window.supabaseClient -->
   <script src="./supabase.js"></script>
+<script>
+  const form = document.getElementById('loginForm');
+  const btn = document.getElementById('btn');
+  const status = document.getElementById('status');
 
-  <script>
-    const form = document.getElementById('loginForm');
-    const btn = document.getElementById('btn');
-    const status = document.getElementById('status');
+  function show(msg, kind){
+    status.style.display = 'block';
+    status.className = 'status ' + (kind || '');
+    status.textContent = msg;
+  }
 
-    function show(msg, kind){
-      status.style.display = 'block';
-      status.className = 'status ' + (kind || '');
-      status.textContent = msg;
+  // انتظر supabaseClient لحد ما يتجهّز (مهم جدًا على Safari)
+  async function waitForSupabaseClient(timeoutMs = 5000) {
+    const start = Date.now();
+    while (!window.supabaseClient) {
+      if (Date.now() - start > timeoutMs) return null;
+      await new Promise(r => setTimeout(r, 50));
     }
+    return window.supabaseClient;
+  }
 
-    // ✅ مهم: عرف المتغير اللي هنستخدمه
-    const supabase = window.supabaseClient;
+  (async () => {
+    const supabase = await waitForSupabaseClient();
     if (!supabase) {
-      show("❌ Supabase غير جاهز. تأكد أن supabase CDN و supabase.js متحملين بدون type=module.", "bad");
+      show("❌ Supabase غير جاهز. غالبًا supabase CDN أو supabase.js مش متحملين صح.", "bad");
+      return;
     }
 
-    // (اختياري) لو المستخدم بالفعل عامل Login، دخّله الداشبورد مباشرة
-    (async function autoRedirectIfLogged(){
-      try{
-        if (!supabase) return;
-        const { data } = await supabase.auth.getSession();
-        if (data?.session) location.href = "./dashboard.html";
-      }catch(e){}
-    })();
+    // لو فيه session بالفعل — دخله على الداشبورد
+    try{
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) location.href = "./dashboard.html";
+    }catch(e){}
+  })();
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!supabase) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-      btn.disabled = true;
-      show('جاري تسجيل الدخول...', '');
+    const supabase = await waitForSupabaseClient();
+    if (!supabase) {
+      show("❌ Supabase غير جاهز. راجع تحميل الملفات.", "bad");
+      return;
+    }
 
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+    btn.disabled = true;
+    show('جاري تسجيل الدخول...', '');
 
-      try{
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
 
-        show('✅ تم تسجيل الدخول بنجاح. تحويل للداشبورد...', 'ok');
-        setTimeout(() => location.href = './dashboard.html', 500);
-      }catch(err){
-        show('❌ فشل تسجيل الدخول: ' + (err?.message || err), 'bad');
-      }finally{
-        btn.disabled = false;
+    try{
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      // ✅ تأكيد إن فيه session فعلاً
+      const { data: sData } = await supabase.auth.getSession();
+      if (!sData?.session) {
+        show("⚠️ تم تسجيل الدخول لكن مفيش Session اتخزّنت. (Safari cookies/storage). جرّب تفتح الموقع في Tab عادي أو فعّل Cookies.", "bad");
+        return;
       }
-    });
-  </script>
+
+      show('✅ تم تسجيل الدخول بنجاح. تحويل للداشبورد...', 'ok');
+
+      // تأكد إن المسار صح
+      setTimeout(() => location.assign("./dashboard.html"), 300);
+
+    }catch(err){
+      show('❌ فشل تسجيل الدخول: ' + (err?.message || err), 'bad');
+    }finally{
+      btn.disabled = false;
+    }
+  });
+</script>
+  
 </body>
 </html>
