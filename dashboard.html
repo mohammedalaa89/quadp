@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Clients Dashboard</title>
+
+<style>
+body{
+  margin:0;
+  background:#0b1220;
+  color:#fff;
+  font-family:system-ui;
+  padding:20px;
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:15px;
+}
+button{
+  padding:8px 12px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+.logout{
+  background:#ff5a6a;
+  color:#fff;
+}
+.refresh{
+  background:#4f7cff;
+  color:#fff;
+}
+.card{
+  background:#111a2e;
+  padding:15px;
+  border-radius:12px;
+  margin-bottom:12px;
+  cursor:pointer;
+}
+.viewer{
+  background:#0c1326;
+  padding:15px;
+  border-radius:12px;
+  min-height:250px;
+}
+.action-btn{
+  margin-top:10px;
+  background:#4f7cff;
+  color:#fff;
+}
+.warn{
+  background:#3a1b1f;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:10px;
+  display:none;
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h2>Clients Dashboard</h2>
+  <div>
+    <button class="refresh" onclick="loadClients()">Refresh</button>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<div class="warn" id="warn"></div>
+
+<div id="clients"></div>
+
+<h3>Client Report</h3>
+<div class="viewer" id="viewer">اختر عميل لعرض التقرير</div>
+<button class="action-btn" onclick="openReport()">Open Report</button>
+<button class="action-btn" onclick="downloadPdf()">Download PDF</button>
+
+<script src="./supabase.js"></script>
+
+<script>
+
+let selectedClient = null;
+let allClients = [];
+
+async function ensureAuth(){
+  const { data } = await supabase.auth.getSession();
+  if(!data?.session){
+    window.location.href = "./login.html";
+  }
+}
+
+async function loadClients(){
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .order("created_at",{ ascending:false });
+
+  if(error){
+    document.getElementById("warn").style.display="block";
+    document.getElementById("warn").innerText =
+      "لا يوجد صلاحية للقراءة. تأكد من RLS + team_members.";
+    return;
+  }
+
+  allClients = data;
+  renderClients();
+}
+
+function renderClients(){
+  const container = document.getElementById("clients");
+  container.innerHTML = "";
+
+  allClients.forEach(c=>{
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `<b>${c.name}</b><br>${c.city || ""} - ${c.industry || ""}`;
+    div.onclick = ()=>selectClient(c);
+    container.appendChild(div);
+  });
+}
+
+function selectClient(client){
+  selectedClient = client;
+
+  if(client.report_html){
+    document.getElementById("viewer").innerHTML = client.report_html;
+  } else {
+    document.getElementById("viewer").innerText = "لا يوجد report_html محفوظ.";
+  }
+}
+
+function openReport(){
+  if(!selectedClient) return;
+
+  const html = selectedClient.report_html;
+  const w = window.open("", "_blank");
+  w.document.write(html);
+  w.document.close();
+}
+
+function downloadPdf(){
+  if(!selectedClient) return;
+
+  const html = selectedClient.report_html;
+  const w = window.open("", "_blank");
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),400);
+}
+
+async function logout(){
+  await supabase.auth.signOut();
+  window.location.href = "./login.html";
+}
+
+(async()=>{
+  await ensureAuth();
+  await loadClients();
+})();
+</script>
+
+</body>
+</html>
