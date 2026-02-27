@@ -43,84 +43,53 @@
     </form>
   </div>
 
-  <!-- 1) Supabase CDN (يعرف window.supabase) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module">
+    import { supabase } from "./supabase.js";
 
-  <!-- 2) ملفك اللي بيعمل window.supabaseClient -->
-  <script src="./supabase.js"></script>
-<script>
-  const form = document.getElementById('loginForm');
-  const btn = document.getElementById('btn');
-  const status = document.getElementById('status');
+    const form = document.getElementById("loginForm");
+    const btn = document.getElementById("btn");
+    const status = document.getElementById("status");
 
-  function show(msg, kind){
-    status.style.display = 'block';
-    status.className = 'status ' + (kind || '');
-    status.textContent = msg;
-  }
-
-  // انتظر supabaseClient لحد ما يتجهّز (مهم جدًا على Safari)
-  async function waitForSupabaseClient(timeoutMs = 5000) {
-    const start = Date.now();
-    while (!window.supabaseClient) {
-      if (Date.now() - start > timeoutMs) return null;
-      await new Promise(r => setTimeout(r, 50));
-    }
-    return window.supabaseClient;
-  }
-
-  (async () => {
-    const supabase = await waitForSupabaseClient();
-    if (!supabase) {
-      show("❌ Supabase غير جاهز. غالبًا supabase CDN أو supabase.js مش متحملين صح.", "bad");
-      return;
+    function show(msg, kind){
+      status.style.display = "block";
+      status.className = "status " + (kind || "");
+      status.textContent = msg;
     }
 
-    // لو فيه session بالفعل — دخله على الداشبورد
-    try{
+    // لو فيه Session أصلاً — دخله مباشرة للداشبورد
+    try {
       const { data } = await supabase.auth.getSession();
-      if (data?.session) location.href = "./dashboard.html";
-    }catch(e){}
-  })();
+      if (data?.session) location.replace("./dashboard.html");
+    } catch (_) {}
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      btn.disabled = true;
+      show("جاري تسجيل الدخول...", "");
 
-    const supabase = await waitForSupabaseClient();
-    if (!supabase) {
-      show("❌ Supabase غير جاهز. راجع تحميل الملفات.", "bad");
-      return;
-    }
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
 
-    btn.disabled = true;
-    show('جاري تسجيل الدخول...', '');
+      try {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
 
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
+        // تأكيد session
+        const { data: s } = await supabase.auth.getSession();
+        if (!s?.session) {
+          show("⚠️ تم تسجيل الدخول لكن Session لم تُحفظ. افتح الموقع في Safari بدون Private، وفعل Cookies.", "bad");
+          return;
+        }
 
-    try{
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+        show("✅ تم تسجيل الدخول بنجاح. تحويل للداشبورد...", "ok");
+        setTimeout(() => location.assign("./dashboard.html"), 250);
 
-      // ✅ تأكيد إن فيه session فعلاً
-      const { data: sData } = await supabase.auth.getSession();
-      if (!sData?.session) {
-        show("⚠️ تم تسجيل الدخول لكن مفيش Session اتخزّنت. (Safari cookies/storage). جرّب تفتح الموقع في Tab عادي أو فعّل Cookies.", "bad");
-        return;
+      } catch (err) {
+        show("❌ فشل تسجيل الدخول: " + (err?.message || err), "bad");
+      } finally {
+        btn.disabled = false;
       }
-
-      show('✅ تم تسجيل الدخول بنجاح. تحويل للداشبورد...', 'ok');
-
-      // تأكد إن المسار صح
-      setTimeout(() => location.assign("./dashboard.html"), 300);
-
-    }catch(err){
-      show('❌ فشل تسجيل الدخول: ' + (err?.message || err), 'bad');
-    }finally{
-      btn.disabled = false;
-    }
-  });
-</script>
-  
+    });
+  </script>
 </body>
 </html>
