@@ -21,7 +21,7 @@
       min-height:100vh;
     }
     .topbar{
-      display:flex; gap:10px; padding:18px 20px; align-items:center; justify-content:flex-start;
+      display:flex; gap:10px; padding:18px 20px; align-items:center; justify-content:flex-end;
     }
     .btn{
       border:0; padding:10px 14px; border-radius:10px; cursor:pointer;
@@ -92,14 +92,13 @@
     }
   </style>
 
-  <!-- PDF -->
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
   <div class="topbar">
-    <button class="btn secondary" id="refreshBtn">Refresh</button>
     <button class="btn danger" id="logoutBtn">Logout</button>
+    <button class="btn secondary" id="refreshBtn">Refresh</button>
   </div>
 
   <div class="wrap">
@@ -153,7 +152,6 @@
     return [city, country, industry].filter(Boolean).join(" • ");
   }
 
-  // يجعل التقرير أبيض ومقروء للطباعة/PDF
   function wrapReportForPrint(rawHtml){
     const printCss = `
       <style>
@@ -169,13 +167,7 @@
           border:1px solid #e6e6e6; border-radius:12px;
           padding:12px 14px; margin: 10px 0; background:#fafafa;
         }
-        .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-        .kv{ border:1px solid #eee; border-radius:10px; padding:10px 12px; background:#fff; }
-        .kv b{ display:block; margin-bottom:6px; font-size:12px; color:#333; }
-        .kv span{ font-size:12.5px; color:#111; }
         @page { size: A4; margin: 12mm; }
-        img,svg{ max-width:100%; }
-        a{ color:#1d4ed8; text-decoration:none; }
       </style>
     `;
     if (/<head[\s>]/i.test(rawHtml)) {
@@ -188,8 +180,7 @@
   let selectedClient = null;
 
   async function requireSessionOrRedirect(){
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) console.warn(error);
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       location.replace("./login.html");
       return null;
@@ -215,7 +206,7 @@
     selectedClient = client;
     markActiveClient(id);
 
-    const name = client.name || client.client_name || "عميل";
+    const name = client.name || "بدون اسم";
     $("reportHint").textContent = `التقرير: ${name}`;
     $("reportBox").style.display = "block";
 
@@ -234,9 +225,10 @@
     $("statusHint").textContent = "جاري جلب العملاء...";
     $("clientsList").innerHTML = `<div class="empty">جاري التحميل...</div>`;
 
+    // ✅ هنا التعديل الأساسي: شلنا client_name لأنه مش موجود عندك
     const { data, error } = await supabase
       .from("clients")
-      .select("id, name, client_name, city, country, industry, created_at, report_html, report_pdf_path")
+      .select("id, name, city, country, industry, created_at, report_html")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -254,7 +246,7 @@
 
     $("clientsList").innerHTML = "";
     data.forEach(row => {
-      const name = row.name || row.client_name || "بدون اسم";
+      const name = row.name || "بدون اسم";
       const meta = formatLocationRow(row);
 
       const el = document.createElement("div");
@@ -283,23 +275,20 @@
   }
 
   async function logout(){
-    try{
-      await supabase.auth.signOut();
-      location.replace("./login.html");
-    }catch(e){
-      alert("Logout فشل: " + (e?.message || e));
-    }
+    await supabase.auth.signOut();
+    location.replace("./login.html");
   }
 
   function bindUI(){
     $("logoutBtn").addEventListener("click", logout);
 
     $("refreshBtn").addEventListener("click", async () => {
+      $("refreshBtn").disabled = true;
       try{
         await requireSessionOrRedirect();
         await loadClients(false);
-      }catch(e){
-        alert("Refresh فشل: " + (e?.message || e));
+      } finally {
+        $("refreshBtn").disabled = false;
       }
     });
 
@@ -319,7 +308,7 @@
 
       const opt = {
         margin: [10, 10, 10, 10],
-        filename: `client-report-${(selectedClient.name || selectedClient.client_name || "client").replace(/\s+/g,"-")}.pdf`,
+        filename: `client-report-${(selectedClient.name || "client").replace(/\s+/g,"-")}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
@@ -331,37 +320,11 @@
     });
   }
 
-  // ===== Init =====
   (async function init(){
-    // مهم: نربط الأزرار فورًا
     bindUI();
-
-    // لازم يكون فيه session
     const session = await requireSessionOrRedirect();
     if (!session) return;
-
-    // تحميل العملاء تلقائيًا
     await loadClients(true);
-
-    // تحديث تلقائي عند الرجوع للتاب
-    document.addEventListener("visibilitychange", async () => {
-      if (document.visibilityState === "visible") {
-        const s = await requireSessionOrRedirect();
-        if (!s) return;
-        await loadClients(false);
-      }
-    });
-
-    // Realtime (اختياري)
-    try {
-      supabase.channel("clients-realtime")
-        .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, async () => {
-          await loadClients(false);
-        })
-        .subscribe();
-    } catch (e) {
-      console.warn("Realtime not enabled:", e);
-    }
   })();
 </script>
 </body>
