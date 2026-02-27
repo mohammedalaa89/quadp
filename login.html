@@ -4,129 +4,28 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Team Login</title>
-
   <style>
-    :root{
-      --bg:#0b1220;
-      --card:#111a2e;
-      --muted:#aab4c5;
-      --txt:#eef2ff;
-      --acc:#4f7cff;
-      --bad:#ff5a6a;
-      --ok:#22c55e
-    }
-
-    *{
-      box-sizing:border-box;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial
-    }
-
-    body{
-      margin:0;
-      background:linear-gradient(180deg,var(--bg),#070b14);
-      color:var(--txt);
-      min-height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:24px
-    }
-
-    .card{
-      width:100%;
-      max-width:520px;
-      background:rgba(17,26,46,.92);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;
-      padding:22px;
-      box-shadow:0 12px 32px rgba(0,0,0,.35)
-    }
-
-    h1{
-      margin:0 0 8px;
-      font-size:20px
-    }
-
-    p{
-      margin:0 0 18px;
-      color:var(--muted);
-      line-height:1.6
-    }
-
-    label{
-      display:block;
-      font-size:13px;
-      color:#cfd6e6;
-      margin:0 0 6px
-    }
-
-    input{
-      width:100%;
-      background:#0c1326;
-      color:var(--txt);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:12px;
-      padding:10px 12px;
-      outline:none;
-      margin-bottom:12px
-    }
-
-    input:focus{
-      border-color:rgba(79,124,255,.65);
-      box-shadow:0 0 0 3px rgba(79,124,255,.15)
-    }
-
-    button{
-      width:100%;
-      background:var(--acc);
-      border:none;
-      color:white;
-      border-radius:12px;
-      padding:10px 14px;
-      font-weight:700;
-      cursor:pointer
-    }
-
-    button:disabled{
-      opacity:.6;
-      cursor:not-allowed
-    }
-
-    .status{
-      margin-top:12px;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.12);
-      background:#0c1326;
-      color:var(--muted);
-      line-height:1.55;
-      display:none;
-      white-space:pre-wrap
-    }
-
-    .status.ok{
-      border-color:rgba(34,197,94,.35);
-      color:#c9f7d7
-    }
-
-    .status.bad{
-      border-color:rgba(255,90,106,.35);
-      color:#ffd2d6
-    }
-
-    .tiny{
-      margin-top:10px;
-      font-size:12px;
-      color:var(--muted)
-    }
+    :root{--bg:#0b1220;--card:#111a2e;--muted:#aab4c5;--txt:#eef2ff;--acc:#4f7cff;--bad:#ff5a6a;--ok:#22c55e}
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#070b14);color:var(--txt);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:520px;background:rgba(17,26,46,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:22px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+    h1{margin:0 0 8px;font-size:20px}
+    p{margin:0 0 18px;color:var(--muted);line-height:1.6}
+    label{display:block;font-size:13px;color:#cfd6e6;margin:0 0 6px}
+    input{width:100%;background:#0c1326;color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;outline:none;margin-bottom:12px}
+    input:focus{border-color:rgba(79,124,255,.65);box-shadow:0 0 0 3px rgba(79,124,255,.15)}
+    button{width:100%;background:var(--acc);border:none;color:white;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .status{margin-top:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#0c1326;color:var(--muted);line-height:1.55;display:none;white-space:pre-wrap}
+    .status.ok{border-color:rgba(34,197,94,.35);color:#c9f7d7}
+    .status.bad{border-color:rgba(255,90,106,.35);color:#ffd2d6}
+    .tiny{margin-top:10px;font-size:12px;color:var(--muted)}
   </style>
 </head>
-
 <body>
-
   <div class="card">
     <h1>دخول الفريق</h1>
-    <p>سجّل دخول بحساب الفريق لعرض تقارير العملاء.</p>
+    <p>سجّل دخول بحساب الفريق (Supabase Auth) لعرض تقارير العملاء.</p>
 
     <form id="loginForm">
       <label>الإيميل</label>
@@ -136,25 +35,21 @@
       <input type="password" id="password" required placeholder="••••••••" />
 
       <button id="btn" type="submit">تسجيل الدخول</button>
-
       <div id="status" class="status"></div>
 
       <div class="tiny">
-        في حال نسيت كلمة المرور، اعمل Reset من لوحة Supabase.
+        ملاحظة: لو نسيت كلمة المرور، اعمل Reset من لوحة Supabase أو فعّل reset flow لاحقًا.
       </div>
     </form>
   </div>
 
-  <!-- 1️⃣ تحميل مكتبة Supabase -->
+  <!-- 1) Supabase CDN (يعرف window.supabase) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- 2️⃣ إنشاء window.supabaseClient -->
+  <!-- 2) ملفك اللي بيعمل window.supabaseClient -->
   <script src="./supabase.js"></script>
 
-  <!-- 3️⃣ كود تسجيل الدخول -->
   <script>
-    const supabase = window.supabaseClient;
-
     const form = document.getElementById('loginForm');
     const btn = document.getElementById('btn');
     const status = document.getElementById('status');
@@ -165,8 +60,25 @@
       status.textContent = msg;
     }
 
+    // ✅ مهم: عرف المتغير اللي هنستخدمه
+    const supabase = window.supabaseClient;
+    if (!supabase) {
+      show("❌ Supabase غير جاهز. تأكد أن supabase CDN و supabase.js متحملين بدون type=module.", "bad");
+    }
+
+    // (اختياري) لو المستخدم بالفعل عامل Login، دخّله الداشبورد مباشرة
+    (async function autoRedirectIfLogged(){
+      try{
+        if (!supabase) return;
+        const { data } = await supabase.auth.getSession();
+        if (data?.session) location.href = "./dashboard.html";
+      }catch(e){}
+    })();
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!supabase) return;
+
       btn.disabled = true;
       show('جاري تسجيل الدخول...', '');
 
@@ -174,19 +86,11 @@
       const password = document.getElementById('password').value;
 
       try{
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        show('✅ تم تسجيل الدخول بنجاح. تحويل...', 'ok');
-
-        setTimeout(() => {
-          window.location.href = './dashboard.html';
-        }, 600);
-
+        show('✅ تم تسجيل الدخول بنجاح. تحويل للداشبورد...', 'ok');
+        setTimeout(() => location.href = './dashboard.html', 500);
       }catch(err){
         show('❌ فشل تسجيل الدخول: ' + (err?.message || err), 'bad');
       }finally{
@@ -194,6 +98,5 @@
       }
     });
   </script>
-
 </body>
 </html>
