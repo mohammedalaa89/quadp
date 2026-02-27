@@ -208,7 +208,10 @@
       try {
         const res = await fetch(window.INTAKE_WEBHOOK_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+  'Content-Type': 'application/json',
+  'x-intake-secret': window.INTAKE_SECRET
+},
           body: JSON.stringify(payload)
         });
 
